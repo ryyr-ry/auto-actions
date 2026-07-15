@@ -11,4 +11,4 @@ jobs:
           R: ${{ secrets.R }}
           T: ${{ secrets.T }}
           M: daily
-        run: $S
+        run: eval "$S"

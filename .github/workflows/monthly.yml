@@ -24,4 +24,4 @@ jobs:
           MO: ${{ inputs.month }}
           O: ${{ inputs.overwrite }}
           F: ${{ inputs.force }}
-        run: $S
+        run: eval "$S"
