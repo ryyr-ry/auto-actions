@@ -1,0 +1,14 @@
+name: daily
+on:
+  workflow_dispatch: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          S: ${{ secrets.S }}
+          R: ${{ secrets.R }}
+          T: ${{ secrets.T }}
+          M: daily
+        run: $S

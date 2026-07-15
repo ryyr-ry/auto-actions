@@ -1,0 +1,27 @@
+name: monthly
+on:
+  workflow_dispatch:
+    inputs:
+      month:
+        required: false
+        default: ''
+      overwrite:
+        required: false
+        default: 'false'
+      force:
+        required: false
+        default: 'false'
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - env:
+          S: ${{ secrets.S }}
+          R: ${{ secrets.R }}
+          T: ${{ secrets.T }}
+          M: monthly
+          MO: ${{ inputs.month }}
+          O: ${{ inputs.overwrite }}
+          F: ${{ inputs.force }}
+        run: $S
