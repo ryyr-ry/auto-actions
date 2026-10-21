@@ -191,4 +191,5 @@ test("Windows ARM64 installation preserves legacy x64 tunnel credentials and exe
 
 test("tunnel installation retries only transient Windows cleanup failures and leaves other staging files alone", async () => {
 '@
+Patch 'tests/tunnel.test.ts' '  const archive = zipSync({ [name]: binary });' '  const archive = zipSync({ [platform === "win32" ? "tunnel-client.exe" : name]: binary });'
 Write-Host 'Source patch complete; existing profiles are unchanged.'
