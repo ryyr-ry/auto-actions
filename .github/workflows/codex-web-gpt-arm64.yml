@@ -58,6 +58,14 @@ jobs:
         run: |
           bun update vite@6.4.4
           if ($LASTEXITCODE -ne 0) { throw "Vite security update failed" }
+      - name: Upgrade electron-builder to ARM64 NSIS fixed release
+        shell: pwsh
+        working-directory: upstream/launcher
+        run: |
+          bun add --dev --exact electron-builder@26.15.6
+          if ($LASTEXITCODE -ne 0) { throw "ARM64-safe electron-builder update failed" }
+          $reported = (bun -e 'console.log(require("electron-builder/package.json").version)').Trim()
+          if ($reported -ne "26.15.6") { throw "Unexpected electron-builder version: $reported" }
       - name: Validate project
         shell: pwsh
         working-directory: upstream
@@ -84,6 +92,7 @@ jobs:
         shell: pwsh
         working-directory: upstream
         run: |
+          $env:ELECTRON_BUILDER_7Z_FILTER = "BCJ"
           bun run app:package
           if ($LASTEXITCODE -ne 0) { throw "Packaging failed" }
           $installer = "launcher/artifacts/codex-web-gpt-6.1.12-win-arm64.exe"
