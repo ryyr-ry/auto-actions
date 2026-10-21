@@ -52,6 +52,12 @@ jobs:
         run: |
           ./scripts/prepare-windows-baseline-bun.ps1 -Version 1.4.0 -GitHubEnv $env:GITHUB_ENV -Architecture arm64
           if ($LASTEXITCODE -ne 0) { throw "Native Bun preparation failed" }
+      - name: Update vulnerable Vite dev dependency
+        shell: pwsh
+        working-directory: upstream/launcher
+        run: |
+          bun update vite@6.4.4
+          if ($LASTEXITCODE -ne 0) { throw "Vite security update failed" }
       - name: Validate project
         shell: pwsh
         working-directory: upstream
