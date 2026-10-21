@@ -154,8 +154,18 @@ Patch 'tests/tunnel.test.ts' @'
 '@
 Patch 'tests/tunnel.test.ts' @'
     const manifest = join(fixture.root, "bin", "tunnel-client-manifest.json");
+    let writes = 0;
 '@ @'
     const manifest = join(fixture.root, "bin",
       process.arch === "arm64" ? "tunnel-client-arm64-manifest.json" : "tunnel-client-manifest.json");
+    let writes = 0;
+'@
+Patch 'tests/tunnel.test.ts' @'
+    const manifest = join(fixture.root, "bin", "tunnel-client-manifest.json");
+    const oldBinary = "trusted 0.0.12 binary";
+'@ @'
+    const manifest = join(fixture.root, "bin",
+      process.arch === "arm64" ? "tunnel-client-arm64-manifest.json" : "tunnel-client-manifest.json");
+    const oldBinary = "trusted 0.0.12 binary";
 '@
 Write-Host 'Source patch complete; existing profiles are unchanged.'
