@@ -93,7 +93,7 @@ jobs:
           $match = Get-Content (Join-Path $env:RUNNER_TEMP "checksums.txt") | Where-Object { $_ -match "^[a-fA-F0-9]{64}  $([regex]::Escape($name))$" }
           if (@($match).Count -ne 1) { throw "Official x64 installer checksum is not available" }
           Invoke-WebRequest "$release/$name" -OutFile $installer
-          $expected = ($match -split "\\s+")[0].ToLowerInvariant()
+          $expected = $match.Substring(0, 64).ToLowerInvariant()
           $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
           if ($expected -ne $actual) { throw "Official x64 installer checksum mismatch" }
           & $installer "/S" "/currentuser"
