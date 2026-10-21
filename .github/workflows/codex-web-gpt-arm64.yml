@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -98,23 +99,26 @@ jobs:
           $installer = "launcher/artifacts/codex-web-gpt-6.1.12-win-arm64.exe"
           if (!(Test-Path $installer)) { throw "ARM64 EXE not found" }
           Get-FileHash -Algorithm SHA256 $installer | Format-List
-      - name: Prepare previous user data and probe x64 installer compatibility
+      - name: Download previously published broken ARM64 installer
+        uses: actions/download-artifact@v4
+        with:
+          name: codex-web-gpt-6.1.12-windows-arm64
+          run-id: 39539383197
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: prior-arm64
+      - name: Reproduce previous install and seed retained user state
         shell: pwsh
-        working-directory: upstream
-        timeout-minutes: 10
+        timeout-minutes: 7
         run: |
-          $installer = Join-Path $env:RUNNER_TEMP "codex-web-gpt-6.1.12-win-x64.exe"
-          $release = "https://github.com/miuuyy/codex-chatgpt-web/releases/download/v6.1.12"
-          Invoke-WebRequest "$release/checksums.txt" -OutFile (Join-Path $env:RUNNER_TEMP "checksums.txt")
-          $name = [IO.Path]::GetFileName($installer)
-          $match = Get-Content (Join-Path $env:RUNNER_TEMP "checksums.txt") | Where-Object { $_ -match "^[a-fA-F0-9]{64}  $([regex]::Escape($name))$" }
-          if (@($match).Count -ne 1) { throw "Official x64 installer checksum is not available" }
-          Invoke-WebRequest "$release/$name" -OutFile $installer
-          $expected = $match.Substring(0, 64).ToLowerInvariant()
-          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
-          if ($expected -ne $actual) { throw "Official x64 installer checksum mismatch" }
-          & $installer "/S" "/currentuser"
-          if ($LASTEXITCODE -ne 0) { Write-Warning "Original x64 installer could not run on the hosted ARM64 runner (exit $LASTEXITCODE); x64-to-ARM64 in-place install is NOT verified in this environment." }
+          $previous = "prior-arm64/codex-web-gpt-6.1.12-win-arm64.exe"
+          if (!(Test-Path $previous)) { throw "Previously published installer missing" }
+          $hash = (Get-FileHash -Algorithm SHA256 $previous).Hash
+          if ($hash -ne "321B67A598870F1BBB89B052CE923161269CEBE63E107649A7BDA929C257F696") {
+            throw "Unexpected previous ARM64 installer SHA-256"
+          }
+          & $previous "/S" "/currentuser"
+          if ($LASTEXITCODE -ne 0) { throw "Previous ARM64 installer could not be staged" }
+          Write-Host "Prior installer completed; now test same-version repair without deleting app data"
           $data = Join-Path $env:APPDATA "Codex Web GPT"
           $core = Join-Path $env:USERPROFILE ".codex-chatgpt-web"
           $codex = Join-Path $env:USERPROFILE ".codex"
