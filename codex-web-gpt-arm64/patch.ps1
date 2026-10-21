@@ -103,4 +103,59 @@ Patch 'scripts/prepare-windows-baseline-bun.ps1' '[Parameter(Mandatory = $true)]
 Patch 'scripts/prepare-windows-baseline-bun.ps1' '$Asset = "bun-windows-x64-baseline.zip"' '$Asset = if ($Architecture -eq "arm64") { "bun-windows-aarch64.zip" } else { "bun-windows-x64-baseline.zip" }'
 Patch 'scripts/prepare-windows-baseline-bun.ps1' '"codex-chatgpt-web-bun-baseline-$Version"' '"codex-chatgpt-web-bun-$Architecture-$Version"'
 Patch 'scripts/prepare-windows-baseline-bun.ps1' '$_ -match "  bun-windows-x64-baseline\.zip$"' '$_ -match "  $([regex]::Escape($Asset))$"'
+# Protect previously installed AMD64 tunnel binaries. ARM64 uses its own
+# executable and manifest, so a failed migration cannot overwrite the old one.
+Patch 'src/tunnel.ts' @'
+  return join(getConfigDir(), "bin", process.platform === "win32" ? "tunnel-client.exe" : "tunnel-client");
+'@ @'
+  const nativeArm64 = process.platform === "win32" && (
+    process.arch === "arm64"
+    || /^(ARM64|AARCH64)$/i.test(process.env.PROCESSOR_ARCHITECTURE ?? "")
+    || /^(ARM64|AARCH64)$/i.test(process.env.PROCESSOR_ARCHITEW6432 ?? "")
+  );
+  return join(getConfigDir(), "bin", nativeArm64 ? "tunnel-client-arm64.exe"
+    : process.platform === "win32" ? "tunnel-client.exe" : "tunnel-client");
+'@
+Patch 'src/tunnel.ts' @'
+  return join(getConfigDir(), "bin", "tunnel-client-manifest.json");
+'@ @'
+  const nativeArm64 = process.platform === "win32" && (
+    process.arch === "arm64"
+    || /^(ARM64|AARCH64)$/i.test(process.env.PROCESSOR_ARCHITECTURE ?? "")
+    || /^(ARM64|AARCH64)$/i.test(process.env.PROCESSOR_ARCHITEW6432 ?? "")
+  );
+  return join(getConfigDir(), "bin", nativeArm64
+    ? "tunnel-client-arm64-manifest.json" : "tunnel-client-manifest.json");
+'@
+# Same-version repair of an earlier ARM64 build with the old shared tunnel path.
+Patch 'launcher/electron/runtime.cjs' '    const activeTunnel = existing.config?.tunnel;' @'
+    const activeTunnel = existing.config?.tunnel;
+    const nativeArm64Tunnel = this.platform === "win32" && process.arch === "arm64"
+      ? path.join(this.coreHome || path.join(os.homedir(), ".codex-chatgpt-web"), "bin", "tunnel-client-arm64.exe")
+      : null;
+    const tunnelArchitectureMigrationRequired = existing.mode === "full"
+      && nativeArm64Tunnel !== null && typeof activeTunnel?.binaryPath === "string"
+      && path.resolve(activeTunnel.binaryPath).toLowerCase() !== path.resolve(nativeArm64Tunnel).toLowerCase();
+'@
+Patch 'launcher/electron/runtime.cjs' @'
+        && !tunnelProfileMigrationRequired
+        && !architectureMigrationRequired)) {
+'@ @'
+        && !tunnelProfileMigrationRequired
+        && !architectureMigrationRequired
+        && !tunnelArchitectureMigrationRequired)) {
+'@
+Patch 'tests/tunnel.test.ts' @'
+  const name = platform === "win32" ? "tunnel-client.exe" : "tunnel-client";
+'@ @'
+  const name = platform === "win32"
+    ? process.arch === "arm64" ? "tunnel-client-arm64.exe" : "tunnel-client.exe"
+    : "tunnel-client";
+'@
+Patch 'tests/tunnel.test.ts' @'
+    const manifest = join(fixture.root, "bin", "tunnel-client-manifest.json");
+'@ @'
+    const manifest = join(fixture.root, "bin",
+      process.arch === "arm64" ? "tunnel-client-arm64-manifest.json" : "tunnel-client-manifest.json");
+'@
 Write-Host 'Source patch complete; existing profiles are unchanged.'
