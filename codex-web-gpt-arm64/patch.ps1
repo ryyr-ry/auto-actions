@@ -192,4 +192,17 @@ test("Windows ARM64 installation preserves legacy x64 tunnel credentials and exe
 test("tunnel installation retries only transient Windows cleanup failures and leaves other staging files alone", async () => {
 '@
 Patch 'tests/tunnel.test.ts' '  const archive = zipSync({ [name]: binary });' '  const archive = zipSync({ [platform === "win32" ? "tunnel-client.exe" : name]: binary });'
+# The original 26.8.1 NSIS packaging silently misses native ARM64 PE files.
+# Pin the release containing the fix; always choose a decoder-compatible 7z filter.
+Patch 'launcher/package.json' '"electron-builder": "^26.8.1"' '"electron-builder": "26.15.6"'
+Patch 'launcher/scripts/package.cjs' 'const env = { ...process.env };' @'
+const env = { ...process.env };
+if (target === "--win" && process.arch === "arm64") {
+  env.ELECTRON_BUILDER_7Z_FILTER = "BCJ";
+  const builderVersion = require(path.join(root, "node_modules", "electron-builder", "package.json")).version;
+  if (builderVersion !== "26.15.6") {
+    throw new Error("Windows ARM64 packaging requires electron-builder 26.15.6 to prevent corrupt NSIS payloads");
+  }
+}
+'@
 Write-Host 'Source patch complete; existing profiles are unchanged.'
