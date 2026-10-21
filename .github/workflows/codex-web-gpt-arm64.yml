@@ -1,0 +1,76 @@
+name: Build Codex Web GPT ARM64
+
+on:
+  push:
+    branches:
+      - codex-web-gpt-arm64-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-11-arm
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone pinned upstream source
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch v6.1.12 https://github.com/miuuyy/codex-chatgpt-web.git upstream
+          if ($LASTEXITCODE -ne 0) { throw "Upstream clone failed" }
+      - name: Apply Windows ARM64 fixes
+        shell: pwsh
+        run: |
+          ./codex-web-gpt-arm64/patch.ps1 -RepositoryRoot ./upstream
+          if ($LASTEXITCODE -ne 0) { throw "Patch failed" }
+          git -C upstream diff --check
+          if ($LASTEXITCODE -ne 0) { throw "Whitespace verification failed" }
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - name: Verify native tools
+        shell: pwsh
+        run: |
+          if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [Runtime.InteropServices.Architecture]::Arm64) { throw "ARM64 OS required" }
+          if ((node -p 'process.arch').Trim() -ne 'arm64') { throw "ARM64 Node required" }
+          if ((bun -e 'console.log(process.arch)').Trim() -ne 'arm64') { throw "ARM64 Bun required" }
+      - name: Install pinned dependencies
+        shell: pwsh
+        working-directory: upstream
+        run: |
+          bun install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "Bun root install failed" }
+          Push-Location launcher
+          try {
+            bun install --frozen-lockfile
+            if ($LASTEXITCODE -ne 0) { throw "Launcher install failed" }
+          } finally { Pop-Location }
+      - name: Prepare verified ARM64 Bun
+        shell: pwsh
+        working-directory: upstream
+        run: |
+          ./scripts/prepare-windows-baseline-bun.ps1 -Version 1.4.0 -GitHubEnv $env:GITHUB_ENV -Architecture arm64
+          if ($LASTEXITCODE -ne 0) { throw "Native Bun preparation failed" }
+      - name: Validate project
+        shell: pwsh
+        working-directory: upstream
+        run: |
+          bun run verify
+          if ($LASTEXITCODE -ne 0) { throw "Project tests failed" }
+      - name: Package ARM64 installer
+        shell: pwsh
+        working-directory: upstream
+        run: |
+          bun run app:package
+          if ($LASTEXITCODE -ne 0) { throw "Packaging failed" }
+          $installer = "launcher/artifacts/codex-web-gpt-6.1.12-win-arm64.exe"
+          if (!(Test-Path $installer)) { throw "ARM64 EXE not found" }
+          Get-FileHash -Algorithm SHA256 $installer | Format-List
+      - name: Upload ARM64 installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-web-gpt-6.1.12-windows-arm64
+          if-no-files-found: error
+          path: upstream/launcher/artifacts/codex-web-gpt-6.1.12-win-arm64.exe
