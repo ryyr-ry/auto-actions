@@ -81,6 +81,30 @@ jobs:
           $installer = "launcher/artifacts/codex-web-gpt-6.1.12-win-arm64.exe"
           if (!(Test-Path $installer)) { throw "ARM64 EXE not found" }
           Get-FileHash -Algorithm SHA256 $installer | Format-List
+      - name: Stage old x64 installation and mock user state
+        shell: pwsh
+        working-directory: upstream
+        timeout-minutes: 10
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "codex-web-gpt-6.1.12-win-x64.exe"
+          $release = "https://github.com/miuuyy/codex-chatgpt-web/releases/download/v6.1.12"
+          Invoke-WebRequest "$release/checksums.txt" -OutFile (Join-Path $env:RUNNER_TEMP "checksums.txt")
+          $name = [IO.Path]::GetFileName($installer)
+          $match = Get-Content (Join-Path $env:RUNNER_TEMP "checksums.txt") | Where-Object { $_ -match "^[a-fA-F0-9]{64}  $([regex]::Escape($name))$" }
+          if (@($match).Count -ne 1) { throw "Official x64 installer checksum is not available" }
+          Invoke-WebRequest "$release/$name" -OutFile $installer
+          $expected = ($match -split "\\s+")[0].ToLowerInvariant()
+          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw "Official x64 installer checksum mismatch" }
+          & $installer "/S" "/currentuser"
+          if ($LASTEXITCODE -ne 0) { throw "Official x64 installer failed" }
+          $data = Join-Path $env:APPDATA "Codex Web GPT"
+          $core = Join-Path $env:USERPROFILE ".codex-chatgpt-web"
+          $codex = Join-Path $env:USERPROFILE ".codex"
+          foreach ($dir in @($data, $core, $codex)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $dir "arm64-migration-sentinel.txt") -Value "keep-existing-user-data" -NoNewline
+          }
       - name: Smoke-test the installed ARM64 application
         shell: pwsh
         working-directory: upstream
@@ -88,6 +112,14 @@ jobs:
         run: |
           bun run app:smoke
           if ($LASTEXITCODE -ne 0) { throw "Packaged ARM64 application could not launch correctly" }
+      - name: Confirm x64 to ARM64 installation retained existing profiles
+        shell: pwsh
+        run: |
+          foreach ($dir in @((Join-Path $env:APPDATA "Codex Web GPT"), (Join-Path $env:USERPROFILE ".codex-chatgpt-web"), (Join-Path $env:USERPROFILE ".codex"))) {
+            $marker = Join-Path $dir "arm64-migration-sentinel.txt"
+            if (!(Test-Path $marker)) { throw "Migration removed a user-data marker: $dir" }
+            if ((Get-Content -Raw $marker) -ne "keep-existing-user-data") { throw "Migration changed a user-data marker: $dir" }
+          }
       - name: Upload ARM64 installer
         uses: actions/upload-artifact@v4
         with:
