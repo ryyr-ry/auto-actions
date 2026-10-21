@@ -120,6 +120,24 @@ jobs:
             if (!(Test-Path $marker)) { throw "Migration removed a user-data marker: $dir" }
             if ((Get-Content -Raw $marker) -ne "keep-existing-user-data") { throw "Migration changed a user-data marker: $dir" }
           }
+      - name: Diagnose packaged installer failure (CI-only)
+        if: failure()
+        shell: pwsh
+        run: |
+          Write-Host "Registry install metadata:"
+          reg query "HKCU\Software\d1a6026a-6210-588e-9a2b-da3936f94e02" /s
+          Write-Host "Programs directory names:"
+          $programs = Join-Path $env:LOCALAPPDATA "Programs"
+          if (Test-Path $programs) {
+            Get-ChildItem $programs -Force | Select-Object Name, FullName
+            Get-ChildItem $programs -Filter "*Codex*" -Directory -ErrorAction SilentlyContinue |
+              ForEach-Object { Get-ChildItem $_.FullName -Force | Select-Object Name, Length }
+          }
+          Write-Host "Defender detections (runner only):"
+          try { Get-MpThreatDetection | Select-Object ThreatID, InitialDetectionTime, Resources | Format-List } catch { Write-Host "No Defender data available" }
+          Write-Host "Installed application executables:"
+          Get-ChildItem $programs -Filter "Codex Web GPT.exe" -Recurse -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length
       - name: Upload ARM64 installer
         uses: actions/upload-artifact@v4
         with:
