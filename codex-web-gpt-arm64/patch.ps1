@@ -168,4 +168,27 @@ Patch 'tests/tunnel.test.ts' @'
       process.arch === "arm64" ? "tunnel-client-arm64-manifest.json" : "tunnel-client-manifest.json");
     const oldBinary = "trusted 0.0.12 binary";
 '@
+Patch 'tests/tunnel.test.ts' @'
+test("tunnel installation retries only transient Windows cleanup failures and leaves other staging files alone", async () => {
+'@ @'
+test("Windows ARM64 installation preserves legacy x64 tunnel credentials and executable", async () => {
+  if (process.platform !== "win32" || process.arch !== "arm64") return;
+  await withTunnelInstall("win32", async fixture => {
+    const oldExecutable = join(fixture.root, "bin", "tunnel-client.exe");
+    const oldManifest = join(fixture.root, "bin", "tunnel-client-manifest.json");
+    const oldExeContent = Buffer.from("existing amd64 executable that must not be modified");
+    const oldManifestContent = "legacy manifest that must not be modified";
+    fs.writeFileSync(oldExecutable, oldExeContent);
+    fs.writeFileSync(oldManifest, oldManifestContent);
+    const installed = await installTunnelClient();
+    expect(installed).toBe(fixture.executable);
+    expect(installed).toContain("tunnel-client-arm64.exe");
+    expect(fs.readFileSync(oldExecutable)).toEqual(oldExeContent);
+    expect(fs.readFileSync(oldManifest, "utf8")).toBe(oldManifestContent);
+    expect(fs.existsSync(join(fixture.root, "bin", "tunnel-client-arm64-manifest.json"))).toBe(true);
+  });
+});
+
+test("tunnel installation retries only transient Windows cleanup failures and leaves other staging files alone", async () => {
+'@
 Write-Host 'Source patch complete; existing profiles are unchanged.'
