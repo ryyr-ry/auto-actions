@@ -72,6 +72,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Root audit failed" }
           bun run launcher:audit
           if ($LASTEXITCODE -ne 0) { throw "Launcher audit failed" }
+      - name: Exercise real OpenAI ARM64 tunnel installation
+        shell: pwsh
+        working-directory: upstream
+        timeout-minutes: 6
+        run: |
+          $env:CODEX_CHATGPT_WEB_HOME = Join-Path $env:RUNNER_TEMP "codex-arm64-tunnel-integration"
+          bun -e 'import { installTunnelClient } from "./src/tunnel.ts"; const first = await installTunnelClient(); if (!first.endsWith("tunnel-client-arm64.exe")) throw new Error("Wrong architecture tunnel"); const second = await installTunnelClient(); if (first !== second) throw new Error("Tunnel reuse failed"); console.log("ARM64_TUNNEL_INSTALL_AND_REUSE_OK");'
+          if ($LASTEXITCODE -ne 0) { throw "Native ARM64 tunnel installation failed" }
       - name: Package ARM64 installer
         shell: pwsh
         working-directory: upstream
