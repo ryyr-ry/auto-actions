@@ -5,6 +5,8 @@ $utf8 = [Text.UTF8Encoding]::new($false)
 function Patch([string]$File,[string]$Before,[string]$After) {
   $p = Join-Path $root $File
   $s = [IO.File]::ReadAllText($p).Replace(([string][char]13 + [char]10), [string][char]10)
+  $Before = $Before.Replace(([string][char]13 + [char]10), [string][char]10)
+  $After = $After.Replace(([string][char]13 + [char]10), [string][char]10)
   $count = $s.Split(@($Before), [StringSplitOptions]::None).Count - 1
   if ($count -ne 1) { throw "Expected one match, found $count in $File" }
   [IO.File]::WriteAllText($p, $s.Replace($Before,$After), $utf8)
