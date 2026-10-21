@@ -44,7 +44,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Bun root install failed" }
           Push-Location launcher
           try {
-            bun install --frozen-lockfile
+            bun install
             if ($LASTEXITCODE -ne 0) { throw "Launcher install failed" }
           } finally { Pop-Location }
       - name: Prepare verified ARM64 Bun
