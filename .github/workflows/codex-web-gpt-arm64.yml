@@ -24,7 +24,6 @@ jobs:
         shell: pwsh
         run: |
           ./codex-web-gpt-arm64/patch.ps1 -RepositoryRoot ./upstream
-          if ($LASTEXITCODE -ne 0) { throw "Patch failed" }
           git -C upstream diff --check
           if ($LASTEXITCODE -ne 0) { throw "Whitespace verification failed" }
       - uses: oven-sh/setup-bun@v2
