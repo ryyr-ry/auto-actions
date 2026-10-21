@@ -116,7 +116,19 @@ jobs:
           if ($hash -ne "321B67A598870F1BBB89B052CE923161269CEBE63E107649A7BDA929C257F696") {
             throw "Unexpected previous ARM64 installer SHA-256"
           }
-          & $previous "/S" "/currentuser"
+          $runner = @'
+const { spawnSync } = require("node:child_process");
+const os = require("node:os");
+const path = require("node:path");
+const exe = path.resolve("prior-arm64/codex-web-gpt-6.1.12-win-arm64.exe");
+const result = spawnSync(exe, ["/S", "/currentuser"], {
+  cwd: os.tmpdir(), encoding: "utf8", timeout: 120000, windowsHide: true
+});
+if (result.error) throw result.error;
+console.log("PRIOR_ARM64_INSTALL_EXIT=" + result.status);
+if (result.status !== 0) process.exit(result.status ?? 1);
+'@
+          $runner | node -
           if ($LASTEXITCODE -ne 0) { throw "Previous ARM64 installer could not be staged" }
           Write-Host "Prior installer completed; now test same-version repair without deleting app data"
           $data = Join-Path $env:APPDATA "Codex Web GPT"
