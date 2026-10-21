@@ -81,6 +81,13 @@ jobs:
           $installer = "launcher/artifacts/codex-web-gpt-6.1.12-win-arm64.exe"
           if (!(Test-Path $installer)) { throw "ARM64 EXE not found" }
           Get-FileHash -Algorithm SHA256 $installer | Format-List
+      - name: Smoke-test the installed ARM64 application
+        shell: pwsh
+        working-directory: upstream
+        timeout-minutes: 8
+        run: |
+          bun run app:smoke
+          if ($LASTEXITCODE -ne 0) { throw "Packaged ARM64 application could not launch correctly" }
       - name: Upload ARM64 installer
         uses: actions/upload-artifact@v4
         with:
