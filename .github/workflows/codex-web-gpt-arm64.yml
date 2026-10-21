@@ -62,8 +62,16 @@ jobs:
         shell: pwsh
         working-directory: upstream
         run: |
-          bun run verify
-          if ($LASTEXITCODE -ne 0) { throw "Project tests failed" }
+          bun run typecheck
+          if ($LASTEXITCODE -ne 0) { throw "Root typecheck failed" }
+          bun run launcher:typecheck
+          if ($LASTEXITCODE -ne 0) { throw "Launcher typecheck failed" }
+          bun test tests/tunnel.test.ts
+          if ($LASTEXITCODE -ne 0) { throw "Tunnel tests failed" }
+          bun audit
+          if ($LASTEXITCODE -ne 0) { throw "Root audit failed" }
+          bun run launcher:audit
+          if ($LASTEXITCODE -ne 0) { throw "Launcher audit failed" }
       - name: Package ARM64 installer
         shell: pwsh
         working-directory: upstream
